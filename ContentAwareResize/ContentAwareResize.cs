@@ -30,8 +30,17 @@ namespace ContentAwareResize
 
     public int FindMinSeamValue( int i, int j,int[,] energyMatrix, int Width, int Height, ref List<coord> tempSeamPathCoord, ref int[,] dp)
     {
-      if (j < 0 || j >= Width || i >= Height) return Int32.MaxValue;
-      if (dp[i, j] != 0) return dp[i, j];
+      if (j < 0 || j >= Width || i >= Height) return 0;
+      if (dp[i, j] != 0)
+      {
+        coord tempLocation = new coord
+        {
+          row = i,
+          column = j
+        };
+        tempSeamPathCoord.Add(tempLocation);
+        return dp[i, j];
+      };
       
       //Dictionary<int, int> seamBranches = new Dictionary<int, int>();
       int[] branch = new int[3];
@@ -47,15 +56,17 @@ namespace ContentAwareResize
           }
           else
           {
-            branch[k + 1] = Int32.MaxValue; // if i+1 is out of Range
+            return 0;
+            //branch[k + 1] = 0; // if i+1 is out of Range
           }
         }
       }
 
-      int temp = Int32.MaxValue;
+      int temp = branch.Max();
       int tempKey = 0;
       for (int k = -1; k<= 1; k++)
       {
+        if (branch[k + 1] == 0) continue;
         int nextJ = j + k;
         if (nextJ >= 0 && nextJ < Width)
         {
@@ -67,7 +78,7 @@ namespace ContentAwareResize
         }
       }
 
-      if (temp == Int32.MaxValue) return 0;
+      //if (temp == Int32.MaxValue) return 0;
       dp[i + 1, tempKey] = temp;
       dp[i, j] += temp;
       coord location = new coord
@@ -88,7 +99,7 @@ namespace ContentAwareResize
          //{
          //  for (int j = 0; j < Width; j++)
          //  {
-         //    dp[i,j] = Int32.MaxValue;
+         //    dp[i,j] = 0;
          //  }
          //}
          int latestSeam = Int32.MaxValue;
