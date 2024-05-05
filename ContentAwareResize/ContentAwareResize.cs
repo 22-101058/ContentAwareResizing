@@ -16,6 +16,27 @@ namespace ContentAwareResize
     {
       public int row;
       public int column;
+      public coord(int i, int j)
+      {
+        row = i;
+        column = j;
+      }
+    }
+    public struct Seam
+    {
+      public int mySeam;
+      public int childrenSeam;
+      public coord childCoord;
+
+      // Constructor with parameters
+      public Seam(int mySeam = 0, int childrenSeam = 0 )
+      {
+        // Initialize fields with parameters
+        this.mySeam = mySeam + childrenSeam;
+        this.childrenSeam = childrenSeam;
+        // If no value is provided for childCoords, create a new list
+        this.childCoord = new coord(-1, -1);
+      }
     }
     //========================================================================================================
     // Your Code is Here:
@@ -28,73 +49,61 @@ namespace ContentAwareResize
     /// <param name="Height">Image's height</param>
     /// <returns>BY REFERENCE: The min total value (energy) of the selected seam in "minSeamValue" & List of points of the selected min vertical seam in seamPathCoord</returns>
 
-    public int FindMinSeamValue( int i, int j,int[,] energyMatrix, int Width, int Height, ref List<coord> tempSeamPathCoord, ref int[,] dp)
+    public Seam Calculate( int i, int j,int[,] energyMatrix, int Width, int Height, ref Seam[,] dp)
     {
-      if (j < 0 || j >= Width || i >= Height) return 0;
-      if (dp[i, j] != 0)
-      {
-        coord tempLocation = new coord
-        {
-          row = i,
-          column = j
-        };
-        tempSeamPathCoord.Add(tempLocation);
-        return dp[i, j];
-      };
+      if (j < 0 || j >= Width || i >= Height) return new Seam(Int32.MaxValue);
+      if (!dp[i, j].Equals(new Seam())) return dp[i, j];
       
-      //Dictionary<int, int> seamBranches = new Dictionary<int, int>();
-      int[] branch = new int[3];
+      Seam[] childrenIj = new Seam[3];
       for (int k = -1; k <= 1; k++)
       {
         int nextJ = j + k;
         if (nextJ >= 0 && nextJ < Width) 
         {
-          if (i+1 < Height)
-          {
-            int trySeamValue = energyMatrix[i+1, nextJ] + FindMinSeamValue(i + 1, nextJ,energyMatrix, Width, Height, ref tempSeamPathCoord, ref dp);
-            branch[k + 1] = trySeamValue;
-          }
-          else
-          {
-            return 0;
-            //branch[k + 1] = 0; // if i+1 is out of Range
-          }
+          Seam childOfIj = Calculate(i + 1, nextJ, energyMatrix, Width, Height, ref dp);
+          childrenIj[k + 1] = childOfIj;
         }
       }
 
-      int temp = branch.Max();
-      int tempKey = 0;
-      for (int k = -1; k<= 1; k++)
+      Seam lowestChildOfIj = new Seam(Int32.MaxValue);
+      int childOfIjKey = 0;
+      for (int k = 0; k <= 2; k++)
       {
-        if (branch[k + 1] == 0) continue;
-        int nextJ = j + k;
-        if (nextJ >= 0 && nextJ < Width)
+        if (childrenIj[k].mySeam < lowestChildOfIj.mySeam)
         {
-          if (branch[k + 1] < temp)
-          {
-            temp = branch[k + 1];
-            tempKey = nextJ;
-          }
+          lowestChildOfIj = childrenIj[k];
+          childOfIjKey = k - 1;
         }
       }
 
-      //if (temp == Int32.MaxValue) return 0;
-      dp[i + 1, tempKey] = temp;
-      dp[i, j] += temp;
-      coord location = new coord
+      Seam thisSeam = new Seam
       {
-        row = i + 1,
-        column = tempKey
+        mySeam = energyMatrix[i, j] + lowestChildOfIj.mySeam,
+        childrenSeam = lowestChildOfIj.mySeam,
+        childCoord = new coord(i + 1, childOfIjKey)
       };
-      tempSeamPathCoord.Add(location);
-      return dp[i,j];
+      return dp[i, j] = thisSeam;
+      //coord chosenChildCoord = new coord
+      //{
+      //  row = i + 1,
+      //  column = childOfIjKey,
+      //};
+      //Seam chosenChild = new Seam
+      //{
+      //  //mySeam = dp[i, j] += temp.mySeam,
+      //  //childrenSeam = dp[i + 1, tempKey] = temp.mySeam,
+      //  mySeam = energyMatrix[i, j],
+      //  childrenSeam = lowestChildOfIj.mySeam + lowestChildOfIj.childrenSeam,
+      //  childCoords = new List<coord> {chosenChildCoord}
+      //};
+      //tempSeamPathCoord.Add(chosenChildCoord);
     }
 
     public void CalculateSeamsCost(int[,] energyMatrix, int Width, int Height, ref int minSeamValue, ref List<coord> seamPathCoord)
     {
          // Write your code here 
          // throw new NotImplementedException(); // comment this line 
-         int[,] dp = new int[Height, Width];
+         Seam[,] dp = new Seam[Height, Width];
          //for (int i = 0; i < Height; i++)
          //{
          //  for (int j = 0; j < Width; j++)
@@ -102,20 +111,38 @@ namespace ContentAwareResize
          //    dp[i,j] = 0;
          //  }
          //}
-         int latestSeam = Int32.MaxValue;
-         for (int column = 0; column < Width; column++)
+         Seam latestSeam = new Seam(Int32.MaxValue);
+         List<coord> tempSeamPathCoord = new List<coord>();
+         coord latestCoord = new coord();
+         for (int col = 0; col < Width; col++)
          {
-           List<coord> tempSeamPathCoord = new List<coord>();
-           int seamValue = energyMatrix[0, column];
-           seamValue += FindMinSeamValue(0, column, energyMatrix, Width, Height,ref tempSeamPathCoord, ref dp);
-           if (seamValue < latestSeam)
+           
+           Seam thisSeam = Calculate(0, col, energyMatrix, Width, Height, ref dp);
+           coord currentCoord = new coord()
            {
-             latestSeam = seamValue;
-             seamPathCoord = tempSeamPathCoord;
+             row = 0,
+             column = col,
+           };
+           
+           if (thisSeam.mySeam < latestSeam.mySeam)
+           {
+             latestSeam = thisSeam;
+             latestCoord = currentCoord;
            }
 
          }
-         minSeamValue = latestSeam;
+         seamPathCoord.Add(latestCoord);
+         int i = latestSeam.childCoord.row;
+         int j = latestSeam.childCoord.column;
+         while (true)
+         {
+           Seam x = dp[i, j];
+           seamPathCoord.Add(x.childCoord);
+           i = x.childCoord.row;
+           j = x.childCoord.column;
+           if (i == -1 && j == -1) break;
+         }
+         minSeamValue = latestSeam.mySeam;
     }
 
     // *****************************************
